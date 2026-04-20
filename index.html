@@ -1,0 +1,526 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Particle Oracle</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&family=Syne:wght@400;600;800&display=swap');
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #07070f;
+    --surface: #0e0e1a;
+    --border: rgba(255,255,255,0.08);
+    --text: #e8e6f0;
+    --muted: rgba(232,230,240,0.45);
+    --accent: #7F77DD;
+  }
+
+  html, body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Space Mono', monospace;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  header {
+    padding: 2rem 2.5rem 0;
+    display: flex;
+    align-items: baseline;
+    gap: 1rem;
+    flex-wrap: wrap;
+  }
+
+  h1 {
+    font-family: 'Syne', sans-serif;
+    font-weight: 800;
+    font-size: clamp(1.6rem, 4vw, 2.4rem);
+    letter-spacing: -0.02em;
+    color: var(--text);
+  }
+
+  .subtitle {
+    font-size: 11px;
+    color: var(--muted);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    padding-top: 4px;
+  }
+
+  main {
+    padding: 1.5rem 2.5rem 2.5rem;
+    display: grid;
+    grid-template-columns: 1fr 260px;
+    gap: 1.5rem;
+    max-width: 1100px;
+  }
+
+  @media (max-width: 768px) {
+    main { grid-template-columns: 1fr; padding: 1rem 1rem 2rem; }
+    header { padding: 1.5rem 1rem 0; }
+  }
+
+  #canvas-wrap {
+    position: relative;
+    border-radius: 12px;
+    overflow: hidden;
+    border: 0.5px solid var(--border);
+    background: #000;
+    aspect-ratio: 16/9;
+  }
+
+  canvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+  }
+
+  #canvas-overlay {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    display: flex;
+    align-items: flex-end;
+    padding: 1rem 1.2rem;
+  }
+
+  #status-txt {
+    font-size: 11px;
+    color: rgba(255,255,255,0.35);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    font-style: italic;
+  }
+
+  .panel {
+    display: flex;
+    flex-direction: column;
+    gap: 1.2rem;
+  }
+
+  .ctrl-card {
+    background: var(--surface);
+    border: 0.5px solid var(--border);
+    border-radius: 10px;
+    padding: 1rem 1.1rem;
+  }
+
+  .ctrl-card h2 {
+    font-family: 'Syne', sans-serif;
+    font-weight: 600;
+    font-size: 11px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 0.8rem;
+  }
+
+  .mood-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+  }
+
+  .mood-btn {
+    background: transparent;
+    border: 0.5px solid var(--border);
+    border-radius: 6px;
+    color: var(--muted);
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    padding: 7px 8px;
+    cursor: pointer;
+    transition: all 0.15s;
+    text-align: left;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .mood-btn:hover {
+    border-color: rgba(255,255,255,0.2);
+    color: var(--text);
+  }
+
+  .mood-btn.active {
+    border-color: var(--accent-color, var(--accent));
+    color: var(--text);
+    background: rgba(127,119,221,0.08);
+  }
+
+  .mood-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  .slider-row {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .slider-item {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+  }
+
+  .slider-label {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .slider-label span:first-child {
+    font-size: 11px;
+    color: var(--muted);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .slider-val {
+    font-size: 12px;
+    color: var(--text);
+    min-width: 20px;
+    text-align: right;
+  }
+
+  input[type=range] {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 100%;
+    height: 3px;
+    background: var(--border);
+    border-radius: 2px;
+    outline: none;
+    cursor: pointer;
+  }
+
+  input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: var(--text);
+    cursor: pointer;
+    border: 2px solid var(--bg);
+    transition: transform 0.1s;
+  }
+
+  input[type=range]::-webkit-slider-thumb:hover {
+    transform: scale(1.2);
+  }
+
+  input[type=range]::-moz-range-thumb {
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: var(--text);
+    cursor: pointer;
+    border: 2px solid var(--bg);
+  }
+
+  .btn-group {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .action-btn {
+    background: transparent;
+    border: 0.5px solid var(--border);
+    border-radius: 6px;
+    color: var(--muted);
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    padding: 9px 12px;
+    cursor: pointer;
+    transition: all 0.15s;
+    text-align: left;
+    letter-spacing: 0.05em;
+  }
+
+  .action-btn:hover {
+    border-color: rgba(255,255,255,0.22);
+    color: var(--text);
+    background: rgba(255,255,255,0.03);
+  }
+
+  .action-btn:active { transform: scale(0.98); }
+
+  .action-btn.danger:hover {
+    border-color: rgba(242, 75, 74, 0.5);
+    color: #F09595;
+  }
+
+  #btn-freeze.active {
+    border-color: rgba(127,119,221,0.5);
+    color: var(--accent);
+    background: rgba(127,119,221,0.08);
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Particle Oracle</h1>
+  <span class="subtitle">a living flow field</span>
+</header>
+
+<main>
+  <div>
+    <div id="canvas-wrap">
+      <canvas id="c"></canvas>
+      <div id="canvas-overlay">
+        <span id="status-txt">flowers that never were</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="ctrl-card">
+      <h2>Mood</h2>
+      <div class="mood-grid" id="mood-grid"></div>
+    </div>
+
+    <div class="ctrl-card">
+      <h2>Parameters</h2>
+      <div class="slider-row">
+        <div class="slider-item">
+          <div class="slider-label">
+            <span>speed</span>
+            <span class="slider-val" id="speed-out">5</span>
+          </div>
+          <input type="range" id="speed" min="1" max="10" value="5" step="1">
+        </div>
+        <div class="slider-item">
+          <div class="slider-label">
+            <span>chaos</span>
+            <span class="slider-val" id="chaos-out">3</span>
+          </div>
+          <input type="range" id="chaos" min="1" max="10" value="3" step="1">
+        </div>
+        <div class="slider-item">
+          <div class="slider-label">
+            <span>count</span>
+            <span class="slider-val" id="count-out">120</span>
+          </div>
+          <input type="range" id="count" min="20" max="500" value="120" step="10">
+        </div>
+        <div class="slider-item">
+          <div class="slider-label">
+            <span>size</span>
+            <span class="slider-val" id="size-out">2</span>
+          </div>
+          <input type="range" id="psize" min="1" max="6" value="2" step="0.5">
+        </div>
+      </div>
+    </div>
+
+    <div class="ctrl-card">
+      <h2>Actions</h2>
+      <div class="btn-group">
+        <button class="action-btn" id="btn-freeze">freeze frame</button>
+        <button class="action-btn" id="btn-save">save as png</button>
+        <button class="action-btn danger" id="btn-clear">clear canvas</button>
+      </div>
+    </div>
+  </div>
+</main>
+
+<script>
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+
+const W = 1280, H = 720;
+canvas.width = W;
+canvas.height = H;
+
+const MOODS = {
+  bloom:  { label: 'bloom',  dot: '#7F77DD', palette: ['#7F77DD','#5DCAA5','#D4537E','#EF9F27','#85B7EB'], flow: 'curl',      trail: 0.04, bg: '#0a0a0f' },
+  void:   { label: 'void',   dot: '#3C3489', palette: ['#3C3489','#0F6E56','#533322','#222255','#111133'], flow: 'sink',      trail: 0.02, bg: '#000000' },
+  storm:  { label: 'storm',  dot: '#B5D4F4', palette: ['#B5D4F4','#FAEEDA','#F09595','#ffffff','#85B7EB'], flow: 'turbulent', trail: 0.07, bg: '#04090d' },
+  dream:  { label: 'dream',  dot: '#AFA9EC', palette: ['#AFA9EC','#F4C0D1','#9FE1CB','#FAC775','#EAF3DE'], flow: 'spiral',    trail: 0.03, bg: '#06040f' },
+  rot:    { label: 'rot',    dot: '#639922', palette: ['#639922','#3B6D11','#97C459','#FAEEDA','#4A1B0C'], flow: 'noise',     trail: 0.05, bg: '#020400' },
+  static: { label: 'static', dot: '#888780', palette: ['#D3D1C7','#B4B2A9','#888780','#5F5E5A','#444441'], flow: 'scatter',   trail: 0.09, bg: '#0d0d0d' },
+};
+
+const STATUS = {
+  bloom: 'flowers that never were',
+  void: 'everything returns to nothing',
+  storm: 'electricity given form',
+  dream: 'between sleep and waking',
+  rot: 'beautiful decay',
+  static: 'signal without meaning',
+};
+
+let currentMoodKey = 'bloom';
+let mood = MOODS.bloom;
+let particles = [];
+let frozen = false;
+let t = 0;
+let raf;
+
+function noise(x, y, z) {
+  const h = (Math.floor(x) * 374761393 ^ Math.floor(y) * 668265263 ^ Math.floor(z) * 2246822519) >>> 0;
+  const fx = x - Math.floor(x), fy = y - Math.floor(y);
+  const u = fx*fx*fx*(fx*(fx*6-15)+10);
+  const v = fy*fy*fy*(fy*(fy*6-15)+10);
+  return (Math.sin(h * 0.00001 + fx * 3.7 + fy * 2.3 + z * 1.7) * 0.5 + 0.5) * 2 - 1;
+}
+
+function flowField(x, y, flow, chaos) {
+  const s = chaos * 0.0025;
+  const nx = noise(x * s, y * s, t * 0.25);
+  const ny = noise(x * s + 100, y * s + 100, t * 0.25);
+  switch (flow) {
+    case 'sink': {
+      const dx = W/2 - x, dy = H/2 - y, d = Math.sqrt(dx*dx+dy*dy)+1;
+      return { ax: dx/d * chaos * 0.3 + nx, ay: dy/d * chaos * 0.3 + ny };
+    }
+    case 'turbulent':
+      return { ax: nx * chaos * 0.8 + Math.sin(y * 0.03) * 2, ay: ny * chaos * 0.8 + Math.cos(x * 0.03) * 2 };
+    case 'spiral': {
+      const dx = W/2 - x, dy = H/2 - y, d = Math.sqrt(dx*dx+dy*dy)+1;
+      return { ax: -dy/d * chaos * 0.5 + nx * 0.5, ay: dx/d * chaos * 0.5 + ny * 0.5 };
+    }
+    case 'scatter':
+      return { ax: nx * chaos * 1.2 + (Math.random()-0.5)*0.5, ay: ny * chaos * 1.2 + (Math.random()-0.5)*0.5 };
+    case 'noise':
+      return { ax: nx * chaos * 0.6, ay: ny * chaos * 0.6 };
+    default: // curl
+      return { ax: Math.sin(ny * Math.PI) * chaos * 0.5 + nx * 0.3, ay: Math.cos(nx * Math.PI) * chaos * 0.5 + ny * 0.3 };
+  }
+}
+
+function makeParticle() {
+  const sz = parseFloat(document.getElementById('psize').value);
+  return {
+    x: Math.random() * W,
+    y: Math.random() * H,
+    vx: 0, vy: 0,
+    color: mood.palette[Math.floor(Math.random() * mood.palette.length)],
+    size: sz * (0.6 + Math.random() * 0.8),
+  };
+}
+
+function initParticles() {
+  const n = parseInt(document.getElementById('count').value);
+  particles = Array.from({length: n}, makeParticle);
+}
+
+function draw() {
+  if (frozen) return;
+  const speed = parseInt(document.getElementById('speed').value) / 5;
+  const chaos = parseInt(document.getElementById('chaos').value);
+
+  ctx.fillStyle = mood.bg + Math.round(mood.trail * 255).toString(16).padStart(2, '0');
+  ctx.fillRect(0, 0, W, H);
+
+  for (let i = 0; i < particles.length; i++) {
+    const p = particles[i];
+    const {ax, ay} = flowField(p.x, p.y, mood.flow, chaos);
+    p.vx = p.vx * 0.88 + ax * 0.12 * speed;
+    p.vy = p.vy * 0.88 + ay * 0.12 * speed;
+    const spd = Math.sqrt(p.vx*p.vx + p.vy*p.vy);
+    if (spd > 6) { p.vx = p.vx/spd*6; p.vy = p.vy/spd*6; }
+    p.x += p.vx;
+    p.y += p.vy;
+
+    if (p.x < -10 || p.x > W+10 || p.y < -10 || p.y > H+10) {
+      p.x = Math.random() * W;
+      p.y = Math.random() * H;
+      p.vx = 0; p.vy = 0;
+      p.color = mood.palette[Math.floor(Math.random() * mood.palette.length)];
+    }
+
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+    ctx.fillStyle = p.color + 'cc';
+    ctx.fill();
+  }
+
+  t += 0.008;
+  raf = requestAnimationFrame(draw);
+}
+
+// Build mood buttons
+const moodGrid = document.getElementById('mood-grid');
+Object.entries(MOODS).forEach(([key, m]) => {
+  const btn = document.createElement('button');
+  btn.className = 'mood-btn' + (key === 'bloom' ? ' active' : '');
+  btn.dataset.mood = key;
+  btn.innerHTML = `<span class="mood-dot" style="background:${m.dot}"></span>${m.label}`;
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.mood-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    currentMoodKey = key;
+    mood = MOODS[key];
+    ctx.fillStyle = mood.bg;
+    ctx.fillRect(0, 0, W, H);
+    particles.forEach(p => p.color = mood.palette[Math.floor(Math.random() * mood.palette.length)]);
+    document.getElementById('status-txt').textContent = STATUS[key];
+  });
+  moodGrid.appendChild(btn);
+});
+
+// Sliders
+['speed','chaos','count','psize'].forEach(id => {
+  const el = document.getElementById(id);
+  const out = document.getElementById(id === 'psize' ? 'size-out' : id + '-out');
+  el.addEventListener('input', () => {
+    out.textContent = el.value;
+    if (id === 'count') {
+      const n = parseInt(el.value);
+      while (particles.length < n) particles.push(makeParticle());
+      while (particles.length > n) particles.pop();
+    }
+    if (id === 'psize') {
+      const sz = parseFloat(el.value);
+      particles.forEach(p => p.size = sz * (0.6 + Math.random() * 0.8));
+    }
+  });
+});
+
+// Buttons
+document.getElementById('btn-freeze').addEventListener('click', function() {
+  if (!frozen) {
+    frozen = true;
+    cancelAnimationFrame(raf);
+    this.textContent = 'unfreeze';
+    this.classList.add('active');
+    document.getElementById('status-txt').textContent = 'frozen in time';
+  } else {
+    frozen = false;
+    this.textContent = 'freeze frame';
+    this.classList.remove('active');
+    document.getElementById('status-txt').textContent = STATUS[currentMoodKey];
+    draw();
+  }
+});
+
+document.getElementById('btn-clear').addEventListener('click', () => {
+  ctx.fillStyle = mood.bg;
+  ctx.fillRect(0, 0, W, H);
+});
+
+document.getElementById('btn-save').addEventListener('click', () => {
+  const link = document.createElement('a');
+  link.download = `particle-oracle-${currentMoodKey}-${Date.now()}.png`;
+  link.href = canvas.toDataURL('image/png');
+  link.click();
+});
+
+// Init
+ctx.fillStyle = mood.bg;
+ctx.fillRect(0, 0, W, H);
+initParticles();
+draw();
+</script>
+</body>
+</html>
